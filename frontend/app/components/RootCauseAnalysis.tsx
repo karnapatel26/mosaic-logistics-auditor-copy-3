@@ -5,6 +5,7 @@ import { Download, Lightbulb, TrendingDown } from "lucide-react";
 import {
   Bar,
   BarChart,
+  Cell,
   CartesianGrid,
   LabelList,
   ResponsiveContainer,
@@ -26,6 +27,14 @@ function heatClass(rate: number) {
   if (rate > 5) return "heat-high";
   if (rate >= 2) return "heat-medium";
   return "heat-low";
+}
+
+function barFill(value: number, max: number) {
+  const ratio = max ? Math.max(0.2, value / max) : 0.2;
+  if (ratio >= 0.8) return "#ef4444";
+  if (ratio >= 0.55) return "#f97316";
+  if (ratio >= 0.3) return "#eab308";
+  return "#22c55e";
 }
 
 function maxBy<T>(items: T[], getValue: (item: T) => number) {
@@ -62,8 +71,11 @@ export default function RootCauseAnalysis({ summary }: Props) {
         name,
         overcharge: s.total_overcharge,
         share: total ? `${Math.round((s.total_overcharge / total) * 100)}%` : "0%",
+        hitRateValue: s.count ? (s.overcharged_count / s.count) * 100 : 0,
       }));
   }, [summary.by_weight_range]);
+  const maxZoneHitRate = useMemo(() => Math.max(...zoneData.map((z) => z.hitRateValue), 0), [zoneData]);
+  const maxWeightHitRate = useMemo(() => Math.max(...weightData.map((w) => w.hitRateValue), 0), [weightData]);
 
   const carriers = useMemo(() => Object.keys(summary.by_carrier_zone).sort(), [summary.by_carrier_zone]);
   const zones = useMemo(() => Object.keys(summary.by_zone).sort(), [summary.by_zone]);
@@ -113,7 +125,7 @@ export default function RootCauseAnalysis({ summary }: Props) {
         alignItems: "flex-start", marginBottom: 16, flexWrap: "wrap" }}>
         <div>
           <p style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
-            Root Cause Analysis Pattern
+            Root Cause Analysis
           </p>
           <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
             Segment-level leakage patterns from automated audit aggregates
@@ -133,7 +145,10 @@ export default function RootCauseAnalysis({ summary }: Props) {
               <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
               <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false}
                 tickFormatter={formatInrThousands} />
-              <Bar dataKey="overcharge" fill="var(--accent)" radius={[5, 5, 0, 0]}>
+              <Bar dataKey="overcharge" radius={[5, 5, 0, 0]}>
+                {zoneData.map((entry) => (
+                  <Cell key={entry.name} fill={barFill(entry.hitRateValue, maxZoneHitRate)} />
+                ))}
                 <LabelList dataKey="hitRate" position="top" fill="var(--text-primary)" fontSize={11} />
               </Bar>
             </BarChart>
@@ -148,7 +163,10 @@ export default function RootCauseAnalysis({ summary }: Props) {
               <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
               <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false}
                 tickFormatter={formatInrThousands} />
-              <Bar dataKey="overcharge" fill="var(--accent)" radius={[5, 5, 0, 0]}>
+              <Bar dataKey="overcharge" radius={[5, 5, 0, 0]}>
+                {weightData.map((entry) => (
+                  <Cell key={entry.name} fill={barFill(entry.hitRateValue, maxWeightHitRate)} />
+                ))}
                 <LabelList dataKey="share" position="top" fill="var(--text-primary)" fontSize={11} />
               </Bar>
             </BarChart>

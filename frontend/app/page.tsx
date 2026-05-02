@@ -9,6 +9,7 @@ const inr = new Intl.NumberFormat("en-IN", {
   style: "currency", currency: "INR", maximumFractionDigits: 0,
 });
 const fmt = (n: number) => inr.format(n);
+const RECOVERABLE_VIOLATION_THRESHOLD = 1;
 
 function Skeleton({ w, h, style }: { w?: string; h?: number; style?: React.CSSProperties }) {
   return <div className="skeleton" style={{ height: h ?? 14, width: w ?? "70%", ...style }} />;
@@ -33,22 +34,26 @@ async function DashboardContent() {
   
   const summary: SummaryResponse = {
     summary: result.summary,
-    by_carrier: result.by_carrier as any,
+    by_carrier: result.by_carrier,
     by_violation_type: result.by_violation_type,
-    by_zone: result.by_zone as any,
-    by_weight_range: result.by_weight_range as any,
-    by_carrier_zone: result.by_carrier_zone as any,
+    by_zone: result.by_zone,
+    by_weight_range: result.by_weight_range,
+    by_carrier_zone: result.by_carrier_zone,
   };
 
   const s = summary.summary;
   const carriers = Object.keys(summary.by_carrier).sort();
   const worstOffenders = Object.entries(summary.by_carrier)
-    .sort((a, b) => (b[1] as any).total_overcharge - (a[1] as any).total_overcharge);
+    .sort((a, b) => b[1].total_overcharge - a[1].total_overcharge);
+  const recoverableViolationTypes = Object.entries(summary.by_violation_type)
+    .filter(([, stats]) => stats.total_overcharge > RECOVERABLE_VIOLATION_THRESHOLD)
+    .map(([type]) => type)
+    .sort();
 
-  const budgetContext = `Billing is running ${s.overcharge_pct_of_spend}% above contracted rates. `
-    + `On a total spend of ${fmt(s.total_billed)}, this equates to `
-    + `${fmt(s.total_overcharge)} in unjustified charges — `
-    + `directly explaining the ~15% budget overrun.`;
+  const budgetContext = `Billing is running ${s.overcharge_pct_of_spend}% above contracted rates — `
+    + `representing ${fmt(s.total_overcharge)} in directly disputable violations. `
+    + `Note: the ~15% total budget overrun includes legitimate factors such as rate revisions `
+    + `and volume mix; this audit isolates only contractual billing discrepancies.`;
 
   return (
     <>
@@ -57,7 +62,7 @@ async function DashboardContent() {
           <AlertTriangle size={20} color="#f97316" style={{ flexShrink: 0, marginTop: 2 }} />
           <div>
             <p style={{ fontSize: 13, fontWeight: 700, color: "#fed7aa", marginBottom: 4 }}>
-              🚨 Budget Overrun Identified — {fmt(s.total_overcharge)} in Overbilling
+              Budget Context — {fmt(s.total_overcharge)} in Recoverable Overcharge
             </p>
             <p style={{ fontSize: 13, color: "#9a3412", lineHeight: 1.6 }}>
               {budgetContext}
@@ -78,7 +83,7 @@ async function DashboardContent() {
 
         <div className="kpi-card red">
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ fontSize: 11, color: "#71717a", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Money Lost</span>
+            <span style={{ fontSize: 11, color: "#71717a", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Recoverable Overcharge</span>
             <TrendingDown size={15} color="#ef4444" />
           </div>
           <p style={{ fontSize: 26, fontWeight: 800, color: "#f87171", letterSpacing: "-0.5px" }}>{fmt(s.total_overcharge)}</p>
@@ -87,7 +92,7 @@ async function DashboardContent() {
 
         <div className="kpi-card accent">
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ fontSize: 11, color: "#71717a", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Above Budget</span>
+            <span style={{ fontSize: 11, color: "#71717a", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Above Contracted Rate</span>
             <TrendingUp size={15} color="#f97316" />
           </div>
           <p style={{ fontSize: 26, fontWeight: 800, color: "#fafafa", letterSpacing: "-0.5px" }}>{s.overcharge_pct_of_spend}%</p>
@@ -134,7 +139,7 @@ async function DashboardContent() {
               </tr>
             </thead>
             <tbody>
-              {worstOffenders.map(([name, c]: any) => (
+              {worstOffenders.map(([name, c]) => (
                 <tr key={name}>
                   <td style={{ color: "#fb923c", fontWeight: 600 }}>{name}</td>
                   <td>{c.shipment_count.toLocaleString("en-IN")}</td>
@@ -162,7 +167,11 @@ async function DashboardContent() {
         </div>
       </div>
 
-      <IssuesTable carriers={carriers} totalIssues={s.overcharged_count} />
+      <IssuesTable
+        carriers={carriers}
+        totalIssues={s.overcharged_count}
+        violationTypes={recoverableViolationTypes}
+      />
     </>
   );
 }

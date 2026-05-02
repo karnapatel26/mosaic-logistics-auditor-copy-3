@@ -4,8 +4,9 @@ import { useMemo } from "react";
 import type { SummaryResponse } from "./types";
 import {
   ResponsiveContainer, Tooltip,
-  PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell, Legend, Label,
 } from "recharts";
+import type { Props as RechartsLabelProps } from "recharts/types/component/Label";
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency", currency: "INR", maximumFractionDigits: 0,
@@ -16,6 +17,7 @@ const inr = new Intl.NumberFormat("en-IN", {
 const fmt = (n: number) => inr.format(n);
 
 const COLORS = ["#f97316","#3b82f6","#22c55e","#a855f7","#ec4899","#14b8a6","#eab308","#06b6d4"];
+const RECOVERABLE_VIOLATION_THRESHOLD = 1;
 
 // Converts backend violation codes into readable labels because chart
 // legends should be understandable without changing API keys.
@@ -47,9 +49,30 @@ export default function Charts({ summary }: Props) {
     .map(([name, s]) => ({ name, overcharge: s.total_overcharge }))
     .sort((a, b) => b.overcharge - a.overcharge), [summary.by_carrier]);
   const violationData = useMemo(() => Object.entries(summary.by_violation_type)
+    .filter(([, s]) => s.total_overcharge > RECOVERABLE_VIOLATION_THRESHOLD)
     .map(([name, s]) => ({ name: humanize(name), value: s.count }))
     .sort((a, b) => b.value - a.value), [summary.by_violation_type]);
   const maxOvercharge = carrierData[0]?.overcharge ?? 1;
+  const totalViolations = violationData.reduce((sum, item) => sum + item.value, 0);
+  const dominantViolation = violationData[0];
+  const dominantShare = dominantViolation && totalViolations
+    ? Math.round((dominantViolation.value / totalViolations) * 100)
+    : 0;
+
+  const centerLabel = ({ viewBox }: RechartsLabelProps) => {
+    const cx = viewBox && "cx" in viewBox ? viewBox.cx : 0;
+    const cy = viewBox && "cy" in viewBox ? viewBox.cy : 0;
+    return (
+      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central">
+        <tspan x={cx} dy="-0.45em" fill="#fafafa" fontSize={13} fontWeight={800}>
+          {dominantViolation?.name ?? "No recoverable"}
+        </tspan>
+        <tspan x={cx} dy="1.35em" fill="#a1a1aa" fontSize={11}>
+          {dominantViolation ? `${dominantShare}% of recoverable` : "violations"}
+        </tspan>
+      </text>
+    );
+  };
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 400px", gap: 24, marginBottom: 32 }}
@@ -94,6 +117,7 @@ export default function Charts({ summary }: Props) {
               {violationData.map((_, i) => (
                 <Cell key={i} fill={COLORS[i % COLORS.length]} />
               ))}
+              <Label position="center" content={centerLabel} />
             </Pie>
             <Tooltip content={<PieTip />} />
             <Legend iconSize={8} iconType="circle"

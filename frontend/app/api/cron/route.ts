@@ -15,7 +15,8 @@ import { getCachedAnalysis } from "@/lib/cache";
 
 export const maxDuration = 60;
 
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
+  void _request;
   try {
     // Optional: verify cron secret if you configure it in Vercel settings
     // const authHeader = request.headers.get('authorization');

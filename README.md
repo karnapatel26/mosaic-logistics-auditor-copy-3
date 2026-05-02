@@ -1,210 +1,101 @@
 # Mosaic Logistics Billing Auditor
 
-> Automated carrier billing reconciliation dashboard built for the **Mosaic Fellowship 2026** challenge.
+Automated carrier billing reconciliation dashboard for the Mosaic Fellowship 2026 logistics challenge. The app fetches live paginated shipment and rate-card data, reconciles every shipment against the contracted rate card, and surfaces recoverable overbilling by carrier, lane, weight range, and violation type.
 
----
+## Live Deployment
 
-## 🎥 Loom Video Walkthrough
+Live URL: `TBD - add Vercel production URL after deployment`
 
-> **TODO — Add before final submission**
->
-> Paste your Loom link here (≤ 5 min walkthrough of the dashboard and key findings).
-
----
-
-## 📝 Methodology Write-up (500 words)
-
-> **TODO — Add before final submission**
->
-> Write a 500-word explanation of your reconciliation methodology here. Cover:
-> - How you modelled the rate-card index (O(1) lookup)
-> - Each violation type and how it is detected
-> - Any edge cases you encountered and resolved
-> - What the data reveals about carrier billing patterns
-
----
-
-## 🚀 Setup & Run Instructions
-
-### Prerequisites
-
-- **Node.js** ≥ 18.x
-- **npm** ≥ 9.x
-
-### 1 — Clone the repo
-
-```bash
-git clone https://github.com/<your-username>/mosaic-logistics-auditor.git
-cd mosaic-logistics-auditor
-```
-
-### 2 — Install dependencies
-
-```bash
-npm --prefix backend install
-cd frontend
-npm install
-```
-
-### 3 — Run locally
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-From the repository root, you can run the same frontend command with:
-
-```bash
-npm run dev
-```
-
-The production app is the Next.js app in `frontend/`. The Express backend is
-kept as a local reference/prototype only and now binds to
-[http://localhost:4000](http://localhost:4000) if you start it explicitly:
-
-```bash
-npm run dev:backend
-```
-
-Do not run both servers on the same `PORT`. The frontend owns port `3000`; the
-prototype backend owns port `4000`.
-
-### 4 — Deploy to Vercel
-
-```bash
-npm install -g vercel
-vercel --prod
-```
-
-> Set the **Root Directory** to `frontend/` in the Vercel project settings.
-
----
-
-## 🏗 Architecture
-
-```
-mosaic-logistics-auditor/
-├── backend/                  # Original Node.js prototype (reference only)
-│   ├── fetchData.js
-│   └── reconciliation.js
-└── frontend/                 # Production Next.js (App Router) application
-    ├── app/
-    │   ├── layout.tsx        # Root layout + SEO metadata
-    │   ├── page.tsx          # Dashboard Client Component
-    │   ├── globals.css       # Design system tokens, animations
-    │   └── api/
-    │       ├── summary/route.ts   # GET /api/summary
-    │       └── issues/route.ts    # GET /api/issues (paginated)
-    └── lib/
-        ├── fetchData.ts      # Paginated API ingestion
-        ├── reconciliation.ts # Core reconciliation engine
-        └── cache.ts          # 10-minute in-memory TTL cache
-```
-
-### Why Next.js (App Router) instead of Express?
-
-The fellowship requires deployment to **Vercel**. Express needs a persistent server process (e.g., Render, Railway), which is not available. Next.js Serverless API Routes run natively on Vercel with zero configuration — each route is an isolated Lambda function.
-
-### Runtime Process Model
-
-The app should run as one Node.js application process in local development:
-
-```
-npm run dev
-└── frontend: Next.js dev server on :3000
-```
-
-The backend folder does not participate in the deployed app. If the old Express
-prototype is started for comparison, it is a separate API process on `:4000`:
-
-```
-npm run dev:backend
-└── backend: Express API prototype on :4000
-```
-
-There is no clustering, `child_process`, `worker_threads`, PM2, nodemon, or
-recursive script spawning in this repository. If you see hundreds of Node.js
-entries in Activity Monitor, first verify whether they are actual processes or
-threads, then check for an external process manager repeatedly restarting the
-same command.
-
-Recommended checks:
-
-```bash
-pgrep -alf "node|next|npm"
-lsof -nP -iTCP:3000 -sTCP:LISTEN
-lsof -nP -iTCP:4000 -sTCP:LISTEN
-```
-
-To reduce dev/build worker risk while investigating machine-level process
-spikes, `frontend/package.json` pins `npm run dev` to `next dev --webpack`
-and `npm run build` to `next build --webpack`. Turbopack remains available
-through `npm run dev:turbo` for explicit testing.
-
-### O(1) Rate-Card Index
-
-The core performance insight is in `lib/reconciliation.ts → buildRateIndex()`:
-
-```ts
-// Instead of O(n) scan per shipment:
-const rate = rateCards.find(r =>
-  r.carrier === s.carrier && r.zone === s.zone && r.weight_slab === s.slab
-);
-
-// We build a Map once — O(n) — then look up in O(1):
-const key = `${carrier}|${zone}|${weight_slab}`;
-const rate = rateIndex.get(key); // O(1)
-```
-
-With 8,000+ shipments and ~200 rate-card rows, this saves **~1.6 million comparisons** per reconciliation run.
-
-### 10-Minute Cache Strategy
-
-Vercel keeps function instances warm between requests. The `lib/cache.ts` module stores the reconciliation result at module scope:
-
-```
-Cold start → fetch all pages (8,000+ rows) → reconcile → store in module variable
-Subsequent requests (within 10 min) → return cached result instantly
-Cache expires → next request triggers a fresh fetch
-```
-
-This prevents Vercel function timeout (max 60 s) from being hit on repeat page loads.
-
-### Violation Detection
-
-Each shipment is checked against **10 violation rules** in a single linear pass:
-
-| Violation | Description |
-|---|---|
-| `CONTRACTED_RATE_TAMPERED` | Stated contracted rate ≠ rate-card base rate |
-| `WEIGHT_SLAB_INFLATION` | Billed on heavier slab than actual weight |
-| `ZONE_UPGRADE` | Billed to more expensive zone than actual |
-| `BASE_RATE_MANIPULATION` | Billed rate ≠ contracted rate (same zone & slab) |
-| `COD_FEE_MISMATCH` | COD fee charged differs from contracted amount |
-| `PHANTOM_COD_ON_PREPAID` | COD fee charged on a prepaid shipment |
-| `RTO_MULTIPLIER_MISMATCH` | Wrong RTO multiplier applied |
-| `PHANTOM_RTO_ON_DELIVERED` | RTO fee charged on a delivered forward shipment |
-| `UNAUTHORIZED_RTO_ON_REVERSE_PICKUP` | RTO fee on a reverse pickup |
-| `UNCONTRACTED_MISC_CHARGES` | Misc charges with no contract basis |
-
----
-
-## 🛠 Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 15 (App Router) |
-| Language | TypeScript |
-| Styling | Tailwind CSS + Vanilla CSS design tokens |
-| Charts | Recharts |
-| Icons | Lucide React |
-| HTTP Client | Axios |
-| Deployment | Vercel (Serverless) |
+| Framework | Next.js 16.2.4 App Router |
+| Language | TypeScript strict mode |
+| Runtime | Vercel Serverless Functions |
+| Cache | Upstash Redis with local memory fallback |
+| Math | decimal.js |
+| UI | Tailwind CSS, Lucide React, Recharts |
 
----
+## Setup
 
-## 📄 License
+```bash
+npm --prefix frontend install
+npm run dev
+```
 
-MIT
+Open [http://localhost:3000](http://localhost:3000). If port 3000 is already in use, Next.js will choose the next available port.
+
+For production validation:
+
+```bash
+npm run build
+npm run lint
+```
+
+## Environment
+
+Copy `.env.example` into the environment where the Next.js app runs and set:
+
+| Variable | Purpose |
+|---|---|
+| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST endpoint for shared serverless cache |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token |
+| `CRON_SECRET` | Optional bearer secret if cron auth is enabled |
+
+The live Mosaic API base URL is defined in `frontend/lib/fetchData.ts` because the fellowship data source is fixed.
+
+## Architecture
+
+```text
+mosaic-logistics-auditor/
+├── backend/                  # Legacy Node prototype, not deployed
+└── frontend/                 # Production Next.js app
+    ├── app/
+    │   ├── page.tsx
+    │   ├── api/summary/route.ts
+    │   ├── api/issues/route.ts
+    │   ├── api/export/route.ts
+    │   └── api/cron/route.ts
+    └── lib/
+        ├── fetchData.ts
+        ├── reconciliation.ts
+        └── cache.ts
+```
+
+`frontend/lib/fetchData.ts` fetches shipments and rate cards with bounded parallel pagination and stable page-order reassembly. `frontend/lib/reconciliation.ts` builds an O(1) rate-card index and performs the audit using decimal.js. `frontend/lib/cache.ts` caches the full reconciliation result for 10 minutes and collapses concurrent cold-start requests.
+
+## API
+
+| Route | Purpose |
+|---|---|
+| `GET /api/summary` | Aggregated KPIs, carrier totals, segment totals, violation totals |
+| `GET /api/issues` | Paginated issue rows with `page`, `limit`, `carrier`, `type`, and `sort` filters |
+| `GET /api/export` | Streaming CSV export of overcharged shipments |
+| `GET /api/cron` | Hourly cache pre-warming endpoint for Vercel Cron |
+
+## Reconciliation Checks
+
+The locked audit engine performs 12 numbered violation rules plus one early-return data quality check, for 13 checks total:
+
+| Check | Purpose |
+|---|---|
+| `MISSING_RATE_CARD` | No contractual rate-card row exists for carrier, zone, and slab |
+| `CONTRACTED_RATE_TAMPERED` | Shipment contracted rate differs from the rate card |
+| `WEIGHT_SLAB_INFLATION` | Billed slab is heavier than actual slab |
+| `ZONE_UPGRADE` | Billed zone is more expensive than destination zone |
+| `BASE_RATE_MANIPULATION` | Billed base rate differs from contracted rate for same lane/slab |
+| `COD_FEE_MISMATCH` | COD charge differs from contracted COD fee |
+| `PHANTOM_COD_ON_PREPAID` | COD fee appears on prepaid shipment |
+| `RTO_MULTIPLIER_MISMATCH` | RTO charge differs from contracted multiplier result |
+| `PHANTOM_RTO_ON_DELIVERED` | RTO fee appears on delivered forward shipment |
+| `PHANTOM_RTO_ON_UNDELIVERED` | RTO fee appears on undelivered forward shipment |
+| `UNAUTHORIZED_RTO_ON_REVERSE_PICKUP` | RTO fee appears on reverse pickup |
+| `UNCONTRACTED_MISC_CHARGES` | Miscellaneous charge has no contractual basis |
+| `TAX_DISCREPANCY` | GST heuristic flag comparing billed total with expected 18% GST total |
+
+Aggregate dashboard views focus on recoverable financial impact. Informational or effectively zero-value checks can remain in raw shipment detail, but they do not drive headline charts or KPIs.
+
+## Methodology
+
+See `METHODOLOGY.md` for the full audit methodology, rule rationale, financial precision details, and interpretation of the 0.83% recoverable overcharge versus the stated ~15% total budget overrun.

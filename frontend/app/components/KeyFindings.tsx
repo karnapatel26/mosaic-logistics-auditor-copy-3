@@ -11,6 +11,7 @@ const inr = new Intl.NumberFormat("en-IN", {
   style: "currency", currency: "INR", maximumFractionDigits: 0,
 });
 const fmt = (n: number) => inr.format(n);
+const RECOVERABLE_VIOLATION_THRESHOLD = 1;
 
 function humanize(t: string) {
   return t.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
@@ -22,7 +23,8 @@ export default function KeyFindings({ summary }: Props) {
   const { by_violation_type, by_carrier, summary: s } = summary;
 
   const findings = useMemo(() => {
-    const violationEntries = Object.entries(by_violation_type);
+    const violationEntries = Object.entries(by_violation_type)
+      .filter(([, stats]) => stats.total_overcharge > RECOVERABLE_VIOLATION_THRESHOLD);
     const carrierEntries = Object.entries(by_carrier);
     const topViolation = [...violationEntries]
       .sort((a, b) => b[1].count - a[1].count)[0];
@@ -48,7 +50,7 @@ export default function KeyFindings({ summary }: Props) {
         bg: "rgba(239,68,68,0.1)",
         label: "Highest Value Violation",
         value: topByValue ? humanize(topByValue[0]) : "—",
-        sub: topByValue ? fmt(topByValue[1].total_overcharge) + " lost" : "",
+        sub: topByValue ? fmt(topByValue[1].total_overcharge) + " recoverable" : "",
       },
       {
         icon: <MapPin size={16} />,
@@ -82,7 +84,7 @@ export default function KeyFindings({ summary }: Props) {
         bg: "rgba(234,179,8,0.1)",
         label: "Overcharge % of Spend",
         value: `${s.overcharge_pct_of_spend}%`,
-        sub: `explains the ~15% budget overrun`,
+        sub: "recoverable contract variance",
       },
       {
         icon: <Package size={16} />,
@@ -98,7 +100,7 @@ export default function KeyFindings({ summary }: Props) {
         bg: "rgba(20,184,166,0.1)",
         label: "Unique Violation Types",
         value: violationEntries.length.toString(),
-        sub: "distinct billing fraud patterns",
+        sub: "recoverable billing patterns",
       },
     ];
   }, [by_carrier, by_violation_type, s.overcharge_pct_of_spend, s.overcharge_rate_pct, s.overcharged_count]);

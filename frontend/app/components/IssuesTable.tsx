@@ -21,36 +21,47 @@ function Skeleton({ w, h }: { w?: string; h?: number }) {
 
 interface Props {
   carriers: string[];
+  violationTypes: string[];
   totalIssues?: number;
 }
 
 const PAGE_SIZE = 50;
 
-export default function IssuesTable({ carriers, totalIssues }: Props) {
+export default function IssuesTable({ carriers, violationTypes, totalIssues }: Props) {
   const [data, setData] = useState<IssuesResponse | null>(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [carrier, setCarrier] = useState("");
+  const [violationType, setViolationType] = useState("");
   const [sort, setSort] = useState("overcharge");
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
 
-  const load = useCallback(async (p: number, c: string, s: string) => {
+  const recoverableTypeSet = useMemo(() => new Set(violationTypes), [violationTypes]);
+
+  const load = useCallback(async (p: number, c: string, t: string, s: string) => {
     setLoading(true);
+    setError("");
     try {
       const params = new URLSearchParams({
         page: String(p), limit: String(PAGE_SIZE), sort: s,
       });
       if (c) params.set("carrier", c);
+      if (t) params.set("type", t);
       const { data } = await axios.get<IssuesResponse>(`/api/issues?${params}`);
       setData(data);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unable to load shipment issues.";
+      setData(null);
+      setError(message);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void Promise.resolve().then(() => load(page, carrier, sort));
-  }, [load, page, carrier, sort]);
+    void Promise.resolve().then(() => load(page, carrier, violationType, sort));
+  }, [load, page, carrier, violationType, sort]);
 
   const totalPages = useMemo(() => data ? Math.ceil(data.total / PAGE_SIZE) : 1, [data]);
   const skeletonRows = useMemo(() => Array.from({ length: 8 }), []);
@@ -64,6 +75,11 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
 
   const changeCarrier = useCallback((value: string) => {
     setCarrier(value);
+    setPage(1);
+  }, []);
+
+  const changeViolationType = useCallback((value: string) => {
+    setViolationType(value);
     setPage(1);
   }, []);
 
@@ -86,6 +102,45 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
 
   const closeIssue = useCallback(() => {
     setSelectedIssue(null);
+  }, []);
+
+  const chipClass = useCallback((type: string) => (
+    recoverableTypeSet.has(type) ? "violation-chip" : "violation-chip informational"
+  ), [recoverableTypeSet]);
+
+  const downloadDisputePackage = useCallback((issue: Issue) => {
+    const claimPackage = {
+      awb_number: issue.awb_number,
+      shipment_id: issue.shipment_id,
+      carrier: issue.carrier,
+      date: issue.shipment_date?.slice(0, 10) ?? null,
+      violation_types: issue.violation_types,
+      expected_charges: {
+        base_rate: issue.contracted_rate,
+        cod: issue.expected_cod,
+        rto: issue.expected_rto,
+        misc: 0,
+        total: issue.expected_total,
+      },
+      actual_charges: {
+        base_rate: issue.billed_rate,
+        cod: issue.cod_charge,
+        rto: issue.rto_charge,
+        misc: issue.misc_charges,
+        total: issue.total_billed,
+      },
+      overcharge_amount: issue.total_overcharge,
+      generated_at: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(claimPackage, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `dispute-${issue.awb_number}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   }, []);
 
   return (
@@ -115,6 +170,16 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
             >
               <option value="">All Carriers</option>
               {carriers.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+
+            <select
+              id="violation-filter"
+              className="filter-select"
+              value={violationType}
+              onChange={e => changeViolationType(e.target.value)}
+            >
+              <option value="">All Recoverable Types</option>
+              {violationTypes.map(t => <option key={t} value={t}>{humanize(t)}</option>)}
             </select>
 
             <select
@@ -157,6 +222,17 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
                     ))}
                   </tr>
                 ))
+              : error
+              ? (
+                  <tr>
+                    <td colSpan={11}>
+                      <div className="table-error">
+                        <AlertCircle size={15} />
+                        <span>{error}</span>
+                      </div>
+                    </td>
+                  </tr>
+                )
               : data?.data.map((issue) => {
                   const issuePct = overchargePct(issue);
                   const isHigh = issuePct > 20;
@@ -188,10 +264,10 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
                       <td>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
                           {issue.violation_types.slice(0, 2).map(v => (
-                            <span key={v} className="violation-chip">{humanize(v)}</span>
+                            <span key={v} className={chipClass(v)}>{humanize(v)}</span>
                           ))}
                           {issue.violation_types.length > 2 && (
-                            <span className="violation-chip">
+                            <span className="violation-chip informational">
                               +{issue.violation_types.length - 2}
                             </span>
                           )}
@@ -211,7 +287,7 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
         </table>
       </div>
 
-      {data && (
+      {data && !error && (
         <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center",
           gap: 12, padding: "14px 24px", borderTop: "1px solid var(--border-subtle)" }}>
           <button id="prev-page-btn"
@@ -255,10 +331,10 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
 
             <div style={{ marginBottom: 20 }}>
               <button 
-                onClick={() => alert(`Dispute flagged for AWB: ${selectedIssue.awb_number}. Case #FLG-${Math.random().toString(36).substr(2, 9).toUpperCase()}`)}
+                onClick={() => downloadDisputePackage(selectedIssue)}
                 className="icon-button"
                 style={{ width: "100%", justifyContent: "center", background: "rgba(239,68,68,0.15)", color: "var(--red)", border: "1px solid rgba(239,68,68,0.3)", height: 44, fontSize: 14, fontWeight: 700 }}>
-                <AlertCircle size={16} /> Flag for Dispute
+                <AlertCircle size={16} /> Download Dispute Package
               </button>
             </div>
 
@@ -308,7 +384,7 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
               <p className="panel-section-title">Root Cause</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {selectedIssue.violation_types.map((v) => (
-                  <span key={v} className="violation-chip">{humanize(v)}</span>
+                  <span key={v} className={chipClass(v)}>{humanize(v)}</span>
                 ))}
               </div>
             </div>
