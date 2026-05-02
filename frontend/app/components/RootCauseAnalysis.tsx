@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import axios from "axios";
 import { Download, Lightbulb, TrendingDown } from "lucide-react";
 import {
   Bar,
@@ -12,112 +11,37 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { Issue, IssuesResponse, SummaryResponse } from "./types";
+import type { SummaryResponse } from "./types";
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency", currency: "INR", maximumFractionDigits: 0,
 });
-
-// Formats rupee values with one shared formatter so export and cards
-// use identical money text without recreating Intl objects.
 const fmt = (n: number) => inr.format(n);
 
-// Converts percent strings from the API into numbers because the
-// heatmap needs numeric thresholds while preserving the API shape.
 function pctNumber(value: string) {
   return Number(value.replace("%", "")) || 0;
 }
 
-// Turns API enum keys into readable labels so exported root causes
-// stay understandable without changing backend codes.
-function humanize(t: string) {
-  return t.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-}
-
-// Chooses the heatmap class from a hit rate so the table can highlight
-// risky lanes using the existing visual styles.
 function heatClass(rate: number) {
   if (rate > 5) return "heat-high";
   if (rate >= 2) return "heat-medium";
   return "heat-low";
 }
 
-// Escapes CSV cells because commas, quotes, and newlines would otherwise
-// break spreadsheet columns in the exported audit file.
-function csvEscape(value: unknown) {
-  const s = String(value ?? "");
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-// Finds the highest-value item in one pass so recommendations do not
-// sort large aggregate lists just to keep the first row.
 function maxBy<T>(items: T[], getValue: (item: T) => number) {
   return items.reduce<T | undefined>((best, item) => (
     !best || getValue(item) > getValue(best) ? item : best
   ), undefined);
 }
 
-// Formats chart ticks as compact rupee thousands so both bar charts
-// share one stable formatter function.
 function formatInrThousands(value: unknown) {
   return `₹${Math.round(Number(value) / 1000)}k`;
-}
-
-// Downloads all current issue rows as CSV so finance teams can reconcile
-// the same audit evidence outside the dashboard.
-function exportRows(rows: Issue[]) {
-  const headers = [
-    "shipment_id", "awb_number", "shipment_date", "carrier", "shipment_type", "payment_mode",
-    "destination_zone", "billed_zone", "actual_weight_slab", "billed_weight_slab",
-    "expected_base_rate", "actual_base_rate", "expected_cod", "actual_cod",
-    "expected_rto", "actual_rto", "misc_charges", "expected_total", "actual_total",
-    "overcharge", "overcharge_pct", "root_cause",
-  ];
-  const body = rows.map((issue) => {
-    const overchargePct = issue.expected_total
-      ? ((issue.total_overcharge / issue.expected_total) * 100).toFixed(2)
-      : "0.00";
-    return [
-      issue.shipment_id,
-      issue.awb_number,
-      issue.shipment_date?.slice(0, 10),
-      issue.carrier,
-      issue.shipment_type,
-      issue.payment_mode,
-      issue.destination_zone,
-      issue.billed_zone,
-      issue.actual_weight_slab,
-      issue.billed_weight_slab,
-      issue.contracted_rate,
-      issue.billed_rate,
-      issue.expected_cod,
-      issue.cod_charge,
-      issue.expected_rto,
-      issue.rto_charge,
-      issue.misc_charges,
-      issue.expected_total,
-      issue.total_billed,
-      issue.total_overcharge,
-      `${overchargePct}%`,
-      issue.violation_types.map(humanize).join("; "),
-    ].map(csvEscape).join(",");
-  });
-
-  const blob = new Blob([[headers.join(","), ...body].join("\n")], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "mosaic-overbilling-issues.csv";
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 interface Props {
   summary: SummaryResponse;
 }
 
-// Shows root-cause breakdowns and export controls so billing leakage can
-// be investigated by lane, zone, carrier, and shipment weight.
 export default function RootCauseAnalysis({ summary }: Props) {
   const [exporting, setExporting] = useState(false);
 
@@ -177,27 +101,10 @@ export default function RootCauseAnalysis({ summary }: Props) {
     ].filter(Boolean) as Array<{ issue: string; data: string; action: string; recovery: number }>;
   }, [summary]);
 
-  // Fetches every issue page before exporting because partial CSVs would
-  // make downstream invoice disputes miss evidence.
-  const exportCsv = useCallback(async () => {
+  const exportCsv = useCallback(() => {
     setExporting(true);
-    try {
-      const pageSize = 200;
-      let page = 1;
-      let total = Infinity;
-      const rows: Issue[] = [];
-
-      while (rows.length < total) {
-        const { data } = await axios.get<IssuesResponse>(`/api/issues?page=${page}&limit=${pageSize}`);
-        total = data.total;
-        rows.push(...data.data);
-        page++;
-      }
-
-      exportRows(rows);
-    } finally {
-      setExporting(false);
-    }
+    window.location.href = "/api/export";
+    setTimeout(() => setExporting(false), 2000);
   }, []);
 
   return (
@@ -205,44 +112,44 @@ export default function RootCauseAnalysis({ summary }: Props) {
       <div style={{ display: "flex", justifyContent: "space-between", gap: 16,
         alignItems: "flex-start", marginBottom: 16, flexWrap: "wrap" }}>
         <div>
-          <p style={{ fontSize: 16, fontWeight: 700, color: "#fafafa", marginBottom: 4 }}>
-            Root Cause Analysis
+          <p style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
+            Root Cause Analysis Pattern
           </p>
-          <p style={{ fontSize: 13, color: "#a1a1aa" }}>
-            Segment-level leakage patterns from API aggregates
+          <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+            Segment-level leakage patterns from automated audit aggregates
           </p>
         </div>
         <button className="icon-button" onClick={exportCsv} disabled={exporting}>
-          <Download size={14} /> {exporting ? "Exporting" : "Export CSV"}
+          <Download size={14} /> {exporting ? "Preparing..." : "Export Dispute CSV"}
         </button>
       </div>
 
       <div className="root-cause-grid">
         <div className="glass-card analysis-card">
-          <p className="analysis-title">Zone Breakdown</p>
+          <p className="analysis-title">Leakage by Zone</p>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={zoneData} margin={{ top: 22, right: 8, left: 6, bottom: 0 }}>
-              <CartesianGrid stroke="#1c1c1f" vertical={false} />
-              <XAxis dataKey="name" stroke="#71717a" fontSize={11} tickLine={false} axisLine={false} />
-              <YAxis stroke="#71717a" fontSize={11} tickLine={false} axisLine={false}
+              <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
+              <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
+              <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false}
                 tickFormatter={formatInrThousands} />
               <Bar dataKey="overcharge" fill="var(--accent)" radius={[5, 5, 0, 0]}>
-                <LabelList dataKey="hitRate" position="top" fill="#fed7aa" fontSize={11} />
+                <LabelList dataKey="hitRate" position="top" fill="var(--text-primary)" fontSize={11} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         <div className="glass-card analysis-card">
-          <p className="analysis-title">Weight Range Breakdown</p>
+          <p className="analysis-title">Leakage by Weight Slab</p>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={weightData} margin={{ top: 22, right: 8, left: 6, bottom: 0 }}>
-              <CartesianGrid stroke="#1c1c1f" vertical={false} />
-              <XAxis dataKey="name" stroke="#71717a" fontSize={11} tickLine={false} axisLine={false} />
-              <YAxis stroke="#71717a" fontSize={11} tickLine={false} axisLine={false}
+              <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
+              <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
+              <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false}
                 tickFormatter={formatInrThousands} />
               <Bar dataKey="overcharge" fill="var(--accent)" radius={[5, 5, 0, 0]}>
-                <LabelList dataKey="share" position="top" fill="#fed7aa" fontSize={11} />
+                <LabelList dataKey="share" position="top" fill="var(--text-primary)" fontSize={11} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -251,7 +158,7 @@ export default function RootCauseAnalysis({ summary }: Props) {
 
       <div className="root-cause-grid lower">
         <div className="glass-card analysis-card heatmap-wrap">
-          <p className="analysis-title">Carrier-Zone Heatmap</p>
+          <p className="analysis-title">Carrier-Zone Hit Rate Heatmap</p>
           <div style={{ overflowX: "auto" }}>
             <table className="data-table heatmap-table">
               <thead>
@@ -263,7 +170,7 @@ export default function RootCauseAnalysis({ summary }: Props) {
               <tbody>
                 {carriers.map((carrier) => (
                   <tr key={carrier}>
-                    <td style={{ color: "#fb923c", fontWeight: 600 }}>{carrier}</td>
+                    <td style={{ color: "var(--accent)", fontWeight: 700 }}>{carrier}</td>
                     {zones.map((zone) => {
                       const stats = summary.by_carrier_zone[carrier]?.[zone];
                       const rate = stats ? pctNumber(stats.hit_rate) : 0;
@@ -282,27 +189,26 @@ export default function RootCauseAnalysis({ summary }: Props) {
           </div>
         </div>
 
-        <div className="glass-card analysis-card">
+        <div className="glass-card analysis-card" style={{ background: "rgba(9,9,11,0.6)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-            <Lightbulb size={16} color="#f97316" />
-            <p className="analysis-title" style={{ marginBottom: 0 }}>Recommendations</p>
+            <Lightbulb size={16} color="var(--accent)" />
+            <p className="analysis-title" style={{ marginBottom: 0 }}>Smart Recommendations</p>
           </div>
           <div style={{ display: "grid", gap: 12 }}>
             {recommendations.map((r) => (
               <div key={r.issue} className="recommendation-item">
-                <p style={{ color: "#fafafa", fontWeight: 700, fontSize: 13 }}>{r.issue}</p>
-                <p><strong>Data:</strong> {r.data}</p>
+                <p style={{ color: "var(--text-primary)", fontWeight: 800, fontSize: 13, marginBottom: 4 }}>{r.issue}</p>
+                <p><strong>Pattern:</strong> {r.data}</p>
                 <p><strong>Action:</strong> {r.action}</p>
-                <p style={{ color: "#f87171", fontWeight: 700 }}>
+                <p style={{ color: "var(--red)", fontWeight: 800, marginTop: 4 }}>
                   Est. Recovery: {fmt(r.recovery)}
                 </p>
               </div>
             ))}
           </div>
           <div className="impact-strip">
-            <TrendingDown size={15} color="#ef4444" />
-            <span>Monthly loss {fmt(summary.summary.total_overcharge)}</span>
-            <span>Annual projection {fmt(summary.summary.total_overcharge * 12)}</span>
+            <TrendingDown size={15} color="var(--red)" />
+            <span>Projected Monthly Recovery: {fmt(summary.summary.total_overcharge)}</span>
           </div>
         </div>
       </div>

@@ -10,21 +10,14 @@ import {
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency", currency: "INR", maximumFractionDigits: 0,
 });
-
-// Formats rupee values once with a shared formatter so every card
-// shows money consistently without recreating Intl objects.
 const fmt = (n: number) => inr.format(n);
 
-// Turns API enum keys into readable labels so the UI can keep using
-// stable backend codes while showing human-friendly text.
 function humanize(t: string) {
   return t.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 }
 
 interface Props { summary: SummaryResponse }
 
-// Builds the key findings cards from summary data so users can scan
-// the highest-risk billing patterns without recalculating on every render.
 export default function KeyFindings({ summary }: Props) {
   const { by_violation_type, by_carrier, summary: s } = summary;
 
@@ -43,7 +36,7 @@ export default function KeyFindings({ summary }: Props) {
     return [
       {
         icon: <AlertTriangle size={16} />,
-        color: "#f97316",
+        color: "var(--accent)",
         bg: "rgba(249,115,22,0.1)",
         label: "Most Frequent Violation",
         value: topViolation ? humanize(topViolation[0]) : "—",
@@ -51,7 +44,7 @@ export default function KeyFindings({ summary }: Props) {
       },
       {
         icon: <DollarSign size={16} />,
-        color: "#ef4444",
+        color: "var(--red)",
         bg: "rgba(239,68,68,0.1)",
         label: "Highest Value Violation",
         value: topByValue ? humanize(topByValue[0]) : "—",
@@ -59,7 +52,7 @@ export default function KeyFindings({ summary }: Props) {
       },
       {
         icon: <MapPin size={16} />,
-        color: "#a855f7",
+        color: "var(--purple)",
         bg: "rgba(168,85,247,0.1)",
         label: "Zone Upgrade Fraud",
         value: zoneStats ? `${zoneStats.count.toLocaleString("en-IN")} shipments` : "None found",
@@ -67,7 +60,7 @@ export default function KeyFindings({ summary }: Props) {
       },
       {
         icon: <Scale size={16} />,
-        color: "#3b82f6",
+        color: "var(--blue)",
         bg: "rgba(59,130,246,0.1)",
         label: "Weight Slab Inflation",
         value: weightStats ? `${weightStats.count.toLocaleString("en-IN")} shipments` : "None found",
@@ -75,7 +68,7 @@ export default function KeyFindings({ summary }: Props) {
       },
       {
         icon: <TrendingDown size={16} />,
-        color: "#ef4444",
+        color: "var(--red)",
         bg: "rgba(239,68,68,0.1)",
         label: "Worst Carrier",
         value: worstCarrier ? worstCarrier[0] : "—",
@@ -85,7 +78,7 @@ export default function KeyFindings({ summary }: Props) {
       },
       {
         icon: <Zap size={16} />,
-        color: "#eab308",
+        color: "var(--yellow)",
         bg: "rgba(234,179,8,0.1)",
         label: "Overcharge % of Spend",
         value: `${s.overcharge_pct_of_spend}%`,
@@ -93,7 +86,7 @@ export default function KeyFindings({ summary }: Props) {
       },
       {
         icon: <Package size={16} />,
-        color: "#22c55e",
+        color: "var(--green)",
         bg: "rgba(34,197,94,0.1)",
         label: "Shipments Affected",
         value: s.overcharged_count.toLocaleString("en-IN"),
@@ -112,10 +105,10 @@ export default function KeyFindings({ summary }: Props) {
 
   return (
     <div style={{ marginBottom: 32 }} className="fade-in fade-in-delay-2">
-      <p style={{ fontSize: 16, fontWeight: 600, color: "#fafafa", marginBottom: 6 }}>
+      <p style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6 }}>
         Key Findings
       </p>
-      <p style={{ fontSize: 13, color: "#a1a1aa", marginBottom: 20 }}>
+      <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20 }}>
         Patterns discovered automatically from the billing data
       </p>
       <div style={{
@@ -132,15 +125,15 @@ export default function KeyFindings({ summary }: Props) {
               {f.icon}
             </div>
             <div style={{ minWidth: 0 }}>
-              <p style={{ fontSize: 10, color: "#52525b", fontWeight: 600,
+              <p style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 700,
                 letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 3 }}>
                 {f.label}
               </p>
-              <p style={{ fontSize: 13, fontWeight: 700, color: "#fafafa",
+              <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)",
                 whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {f.value}
               </p>
-              <p style={{ fontSize: 11, color: "#52525b", marginTop: 2 }}>{f.sub}</p>
+              <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{f.sub}</p>
             </div>
           </div>
         ))}

@@ -3,25 +3,18 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, AlertCircle } from "lucide-react";
 import type { IssuesResponse, Issue } from "./types";
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency", currency: "INR", maximumFractionDigits: 0,
 });
-
-// Formats charges with one shared formatter so every table and panel
-// amount uses the same rupee display without recreating Intl objects.
 const fmt = (n: number) => inr.format(n);
 
-// Turns backend violation codes into readable chips because the API
-// keeps stable enum names that are not friendly table labels.
 function humanize(t: string) {
   return t.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 }
 
-// Draws a fixed-size loading block so the table keeps its shape while
-// issue rows are being fetched.
 function Skeleton({ w, h }: { w?: string; h?: number }) {
   return <div className="skeleton" style={{ height: h ?? 14, width: w ?? "80%" }} />;
 }
@@ -33,8 +26,6 @@ interface Props {
 
 const PAGE_SIZE = 50;
 
-// Displays paginated overcharge issues and a detail panel so users can
-// inspect invoice errors without loading every shipment at once.
 export default function IssuesTable({ carriers, totalIssues }: Props) {
   const [data, setData] = useState<IssuesResponse | null>(null);
   const [page, setPage] = useState(1);
@@ -43,8 +34,6 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
   const [sort, setSort] = useState("overcharge");
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
 
-  // Loads one page at a time because the issue list can be large and
-  // fetching everything would slow the browser.
   const load = useCallback(async (p: number, c: string, s: string) => {
     setLoading(true);
     try {
@@ -67,67 +56,48 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
   const skeletonRows = useMemo(() => Array.from({ length: 8 }), []);
   const skeletonCells = useMemo(() => Array.from({ length: 11 }), []);
 
-  // Checks zone agreement so mismatched billing zones can be highlighted
-  // without duplicating the comparison in the table and detail panel.
   const zoneOk = (issue: Issue) => issue.destination_zone === issue.billed_zone;
-
-  // Checks slab agreement so weight inflation is shown consistently in
-  // both the row and the shipment detail panel.
   const slabOk = (issue: Issue) => issue.actual_weight_slab === issue.billed_weight_slab;
-
-  // Calculates the overcharge percentage from expected cost because
-  // severity badges need a normalized risk value.
   const overchargePct = (issue: Issue) => issue.expected_total
     ? (issue.total_overcharge / issue.expected_total) * 100
     : 0;
 
-  // Resets pagination when the carrier changes because filtered results
-  // may not have the same page count as the previous view.
   const changeCarrier = useCallback((value: string) => {
     setCarrier(value);
     setPage(1);
   }, []);
 
-  // Resets pagination when sorting changes so users see the first page
-  // of the newly ordered issue list.
   const changeSort = useCallback((value: string) => {
     setSort(value);
     setPage(1);
   }, []);
 
-  // Moves backward one page while guarding against page zero.
   const previousPage = useCallback(() => {
     setPage(p => Math.max(1, p - 1));
   }, []);
 
-  // Moves forward one page while guarding against going past the API total.
   const nextPage = useCallback(() => {
     setPage(p => Math.min(totalPages, p + 1));
   }, [totalPages]);
 
-  // Opens the side panel for the clicked shipment so users can review
-  // charge-level evidence without leaving the table.
   const selectIssue = useCallback((issue: Issue) => {
     setSelectedIssue(issue);
   }, []);
 
-  // Closes the side panel from the backdrop or close button so the same
-  // behavior is reused in both places.
   const closeIssue = useCallback(() => {
     setSelectedIssue(null);
   }, []);
 
   return (
     <div className="glass-card fade-in fade-in-delay-5" id="issues-table">
-      {/* Header */}
-      <div style={{ padding: "20px 24px", borderBottom: "1px solid #1c1c1f" }}>
+      <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-subtle)" }}>
         <div style={{ display: "flex", justifyContent: "space-between",
           alignItems: "center", flexWrap: "wrap", gap: 16 }}>
           <div>
-            <p style={{ fontSize: 16, fontWeight: 600, color: "#fafafa", marginBottom: 4 }}>
+            <p style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
               Overcharged Shipments
             </p>
-            <p style={{ fontSize: 13, color: "#a1a1aa" }}>
+            <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
               {data
                 ? `${data.total.toLocaleString("en-IN")} issues · page ${page}/${totalPages}`
                 : totalIssues
@@ -136,7 +106,6 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
             </p>
           </div>
 
-          {/* Filters */}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <select
               id="carrier-filter"
@@ -162,7 +131,6 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
         </div>
       </div>
 
-      {/* Table */}
       <div style={{ overflowX: "auto" }}>
         <table className="data-table">
           <thead>
@@ -196,12 +164,12 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
                   return (
                     <tr key={issue.shipment_id} id={`row-${issue.shipment_id}`}
                       onClick={() => selectIssue(issue)}>
-                      <td style={{ color: "#fafafa", fontWeight: 500,
+                      <td style={{ color: "var(--text-primary)", fontWeight: 500,
                         fontFamily: "monospace", fontSize: "0.76rem" }}>
                         {issue.awb_number}
                       </td>
                       <td>{issue.shipment_date?.slice(0, 10) ?? "—"}</td>
-                      <td style={{ color: "#fb923c" }}>{issue.carrier}</td>
+                      <td style={{ color: "var(--accent)" }}>{issue.carrier}</td>
                       <td className="match">{issue.destination_zone}</td>
                       <td className={zoneOk(issue) ? "match" : "mismatch"}>
                         {issue.billed_zone}
@@ -212,9 +180,9 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
                         {issue.billed_weight_slab}
                         {!slabOk(issue) && " ⚠"}
                       </td>
-                      <td>{fmt(issue.total_billed)}</td>
-                      <td style={{ color: isHigh ? "#f87171" : isMed ? "#fb923c" : "#facc15",
-                        fontWeight: 600 }}>
+                      <td style={{ color: "var(--text-primary)" }}>{fmt(issue.total_billed)}</td>
+                      <td style={{ color: isHigh ? "var(--red)" : isMed ? "var(--accent)" : "var(--yellow)",
+                        fontWeight: 700 }}>
                         {fmt(issue.total_overcharge)}
                       </td>
                       <td>
@@ -243,31 +211,24 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
         </table>
       </div>
 
-      {/* Pagination */}
       {data && (
         <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center",
-          gap: 12, padding: "14px 24px", borderTop: "1px solid #1c1c1f" }}>
+          gap: 12, padding: "14px 24px", borderTop: "1px solid var(--border-subtle)" }}>
           <button id="prev-page-btn"
             disabled={page <= 1}
             onClick={previousPage}
-            style={{ padding: "6px 12px", background: "transparent",
-              border: "1px solid #27272a", borderRadius: 6,
-              color: page <= 1 ? "#3f3f46" : "#a1a1aa",
-              cursor: page <= 1 ? "not-allowed" : "pointer",
-              display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+            className="icon-button"
+            style={{ padding: "6px 12px", height: "auto" }}>
             <ChevronLeft size={14} /> Prev
           </button>
-          <span style={{ fontSize: 13, color: "#52525b" }}>
+          <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 600 }}>
             {page} / {totalPages}
           </span>
           <button id="next-page-btn"
             disabled={page >= totalPages}
             onClick={nextPage}
-            style={{ padding: "6px 12px", background: "transparent",
-              border: "1px solid #27272a", borderRadius: 6,
-              color: page >= totalPages ? "#3f3f46" : "#a1a1aa",
-              cursor: page >= totalPages ? "not-allowed" : "pointer",
-              display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+            className="icon-button"
+            style={{ padding: "6px 12px", height: "auto" }}>
             Next <ChevronRight size={14} />
           </button>
         </div>
@@ -278,17 +239,26 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
           <aside className="side-panel" onClick={(e) => e.stopPropagation()}>
             <div className="side-panel-header">
               <div>
-                <p style={{ fontSize: 11, color: "#71717a", fontWeight: 700,
+                <p style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 800,
                   letterSpacing: "0.08em", textTransform: "uppercase" }}>
                   Shipment Detail
                 </p>
-                <p style={{ color: "#fafafa", fontWeight: 800, fontSize: 18 }}>
+                <p style={{ color: "var(--text-primary)", fontWeight: 800, fontSize: 20 }}>
                   {selectedIssue.awb_number}
                 </p>
               </div>
               <button className="panel-close" onClick={closeIssue}
                 aria-label="Close shipment detail">
                 <X size={17} />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <button 
+                onClick={() => alert(`Dispute flagged for AWB: ${selectedIssue.awb_number}. Case #FLG-${Math.random().toString(36).substr(2, 9).toUpperCase()}`)}
+                className="icon-button"
+                style={{ width: "100%", justifyContent: "center", background: "rgba(239,68,68,0.15)", color: "var(--red)", border: "1px solid rgba(239,68,68,0.3)", height: 44, fontSize: 14, fontWeight: 700 }}>
+                <AlertCircle size={16} /> Flag for Dispute
               </button>
             </div>
 
@@ -343,7 +313,7 @@ export default function IssuesTable({ carriers, totalIssues }: Props) {
               </div>
             </div>
 
-            <div className="detail-grid">
+            <div className="detail-grid" style={{ marginTop: 24 }}>
               <div>
                 <span>Actual Zone</span>
                 <strong>{selectedIssue.destination_zone}</strong>
