@@ -41,6 +41,7 @@ cd mosaic-logistics-auditor
 ### 2 — Install dependencies
 
 ```bash
+npm --prefix backend install
 cd frontend
 npm install
 ```
@@ -52,6 +53,23 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+From the repository root, you can run the same frontend command with:
+
+```bash
+npm run dev
+```
+
+The production app is the Next.js app in `frontend/`. The Express backend is
+kept as a local reference/prototype only and now binds to
+[http://localhost:4000](http://localhost:4000) if you start it explicitly:
+
+```bash
+npm run dev:backend
+```
+
+Do not run both servers on the same `PORT`. The frontend owns port `3000`; the
+prototype backend owns port `4000`.
 
 ### 4 — Deploy to Vercel
 
@@ -88,6 +106,42 @@ mosaic-logistics-auditor/
 ### Why Next.js (App Router) instead of Express?
 
 The fellowship requires deployment to **Vercel**. Express needs a persistent server process (e.g., Render, Railway), which is not available. Next.js Serverless API Routes run natively on Vercel with zero configuration — each route is an isolated Lambda function.
+
+### Runtime Process Model
+
+The app should run as one Node.js application process in local development:
+
+```
+npm run dev
+└── frontend: Next.js dev server on :3000
+```
+
+The backend folder does not participate in the deployed app. If the old Express
+prototype is started for comparison, it is a separate API process on `:4000`:
+
+```
+npm run dev:backend
+└── backend: Express API prototype on :4000
+```
+
+There is no clustering, `child_process`, `worker_threads`, PM2, nodemon, or
+recursive script spawning in this repository. If you see hundreds of Node.js
+entries in Activity Monitor, first verify whether they are actual processes or
+threads, then check for an external process manager repeatedly restarting the
+same command.
+
+Recommended checks:
+
+```bash
+pgrep -alf "node|next|npm"
+lsof -nP -iTCP:3000 -sTCP:LISTEN
+lsof -nP -iTCP:4000 -sTCP:LISTEN
+```
+
+To reduce dev/build worker risk while investigating machine-level process
+spikes, `frontend/package.json` pins `npm run dev` to `next dev --webpack`
+and `npm run build` to `next build --webpack`. Turbopack remains available
+through `npm run dev:turbo` for explicit testing.
 
 ### O(1) Rate-Card Index
 

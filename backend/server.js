@@ -7,6 +7,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const PORT = Number(process.env.PORT || 4000);
+
 // In-memory cache with TTL
 let analysisCache = null;
 let cacheTime = 0;
@@ -134,7 +136,7 @@ function handleHealth(_, res) {
 
 // Logs the bound port once so local runs make the active backend visible.
 function logStartup() {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Backend API running on http://localhost:${PORT}`);
 }
 
 app.get('/api/summary', handleSummary);
@@ -142,5 +144,8 @@ app.get('/api/issues', handleIssues);
 app.get('/api/issues/:shipment_id', handleIssueDetail);
 app.get('/health', handleHealth);
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, logStartup);
+if (require.main === module) {
+  app.listen(PORT, logStartup);
+}
+
+module.exports = { app, getAnalysis };
