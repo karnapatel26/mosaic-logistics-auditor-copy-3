@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCachedAnalysis } from "@/lib/cache";
+import { buildOverbillingCsv } from "@/lib/exportCsv";
 import type { ReconciledShipment } from "@/lib/reconciliation";
 
 export const maxDuration = 60;
-
-function readInt(value: string | null, fallback: number, max: number) {
-  const parsed = Number.parseInt(value ?? "", 10);
-  return Math.min(max, Math.max(1, Number.isNaN(parsed) ? fallback : parsed));
-}
 
 function matches(issue: ReconciledShipment, searchParams: URLSearchParams) {
   const search = (searchParams.get("search") ?? "").trim().toLowerCase();
@@ -25,25 +21,16 @@ function matches(issue: ReconciledShipment, searchParams: URLSearchParams) {
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = request.nextUrl;
-    const page = readInt(searchParams.get("page"), 1, Number.MAX_SAFE_INTEGER);
-    const limit = readInt(searchParams.get("limit"), 50, 200);
-
     const result = await getCachedAnalysis();
-    const issues = result.issues
-      .filter((issue) => matches(issue, searchParams))
-      .sort((a, b) => b.overcharge - a.overcharge);
-
-    const start = (page - 1) * limit;
-    return NextResponse.json({
-      total: issues.length,
-      page,
-      limit,
-      data: issues.slice(start, start + limit),
+    const rows = result.issues.filter((issue) => matches(issue, request.nextUrl.searchParams));
+    return new NextResponse(buildOverbillingCsv(rows), {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="mosaic-overbilling-issues.csv"',
+      },
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[/api/issues] Error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return new NextResponse(message, { status: 500 });
   }
 }

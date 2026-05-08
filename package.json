@@ -2,9 +2,9 @@
   "name": "mosaic-logistics-auditor",
   "private": true,
   "scripts": {
+    "postinstall": "npm --prefix frontend install",
     "dev": "npm --prefix frontend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
-    "dev:backend": "npm --prefix backend run start",
     "build": "npm --prefix frontend run build",
     "lint": "npm --prefix frontend run lint"
   }

@@ -5,6 +5,7 @@ node_modules/
 .next/
 out/
 build/
+frontend/mosaic-logistics-auditor-copy-3/
 
 # misc
 .DS_Store
@@ -18,6 +19,7 @@ yarn-error.log*
 
 # env files
 .env*
+!.env.example
 
 # vercel
 .vercel/

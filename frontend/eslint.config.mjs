@@ -12,6 +12,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "mosaic-logistics-auditor-copy-3/**",
   ]),
 ]);
 
