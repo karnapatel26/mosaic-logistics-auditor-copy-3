@@ -51,7 +51,7 @@ Status classification:
 - `Underbilled/Discounted` when overcharge is negative.
 - `Rate Card Match Missing` when no usable rate-card match exists.
 
-Only positive overcharge contributes to total potential overbilling. Underbilling and discounts are not included in leakage totals.
+Only positive overcharge contributes to recoverable overbilling. Underbilled or discounted shipments are tracked separately and are not included in recoverable leakage.
 
 ## Error Reasons
 
@@ -64,7 +64,20 @@ The audit assigns one or more reasons when possible:
 - RTO/return charge mismatch
 - Unclassified
 
-The dashboard uses root-cause reasons for category summaries and charts, while the shipment table shows all assigned root-cause reasons. Final billed total mismatches are tracked as a separate check and are not mixed into root-cause charts.
+The dashboard uses root-cause reasons for category summaries and charts, while the shipment table shows all assigned root-cause reasons. Affected shipments are unique overbilled shipments. Violation events are counted separately as root-cause issues, and one affected shipment can have multiple violation events.
+
+Recoverable billed-total overages are interpreted as positive-overcharge rows only. Underbilled/discounted rows are not counted as recoverable overbilling, even though they are still classified for audit context.
+
+## Final Verified Numbers
+
+- Total shipments audited: 8,000
+- Recoverable overbilling: ₹14,438.07
+- Affected shipments: 212
+- Violation events: 215
+- Underbilled/discounted shipments: 22
+- Worst carrier: BlueDart
+- Most common issue: Weight slab mismatch
+- Highest financial-impact issue: RTO/return charge mismatch
 
 ## Assumptions
 
