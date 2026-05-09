@@ -1,27 +1,82 @@
 # Mosaic Logistics Billing Auditor
 
-Next.js/TypeScript submission project for the Mosaic Fellowship Builder Challenge problem: Supply Chain Team - Logistics Billing Auditor.
+A dispute-ready logistics billing reconciliation tool that detects recoverable carrier overbilling by comparing live shipment bills against contracted rate cards.
 
-- Live demo: To be added after deployment
-- Loom walkthrough: To be added after recording
-- GitHub repository: https://github.com/karnapatel26/mosaic-logistics-auditor-copy-3
+Built for the Mosaic Fellowship Builder Challenge problem: Supply Chain Team - Logistics Billing Auditor.
 
-## Overview
+## Quick Links
 
-The app audits logistics billing by fetching the live Mosaic shipment and rate-card APIs, matching each shipment against the correct contract row, and surfacing recoverable carrier overbilling. It is built as a Vercel-ready Next.js App Router application with TypeScript, React, server-side API routes, and no login requirement.
-
-Backend logic runs through Next.js API routes in `frontend/app/api`. There is no separate Express service, background server, or standalone backend process.
+- Live Demo: To be added after deployment
+- Loom Walkthrough: To be added after recording
+- Methodology: [./METHODOLOGY.md](./METHODOLOGY.md)
+- Source Code: This repository
 
 ## Final Verified Numbers
 
-- Total shipments audited: 8,000
-- Recoverable overbilling: ₹14,438.07
-- Affected shipments: 212
-- Violation events: 215
-- Underbilled/discounted shipments: 22
-- Worst carrier: BlueDart
-- Most common issue: Weight slab mismatch
-- Highest financial-impact issue: RTO/return charge mismatch
+| Metric | Value |
+|---|---:|
+| Total Shipments Audited | 8,000 |
+| Recoverable Overbilling | ₹14,438.07 |
+| Affected Overbilled Shipments | 212 |
+| Violation Events | 215 |
+| Underbilled / Discounted Shipments | 22 |
+| Worst Carrier by Leakage | BlueDart |
+| Most Common Issue | Weight Slab Mismatch |
+| Highest Financial Impact Issue | RTO/Return Charge Mismatch |
+
+## Why This Matters
+
+Logistics teams often receive carrier invoices where the billed amount does not match the contracted rate card. Manually checking thousands of shipments is slow and error-prone. This tool automates the reconciliation process, identifies recoverable overbilling, explains the root cause, and creates a dispute-ready queue for carrier follow-up.
+
+## What The App Does
+
+- Fetches live shipment and rate-card data from Mosaic APIs.
+- Matches each shipment to the correct contracted rate.
+- Calculates expected charge and compares it with billed charge.
+- Flags only positive overcharges as recoverable leakage.
+- Classifies root causes such as weight slab mismatch, zone mismatch, COD mismatch, RTO mismatch, and extra/misc charges.
+- Ranks carriers by recoverable overbilling.
+- Provides a Priority Dispute Queue and CSV export for action.
+
+## Dashboard Features
+
+- Executive KPI cards
+- Spend Context
+- Carrier-wise Recoverable Overbilling
+- Root Cause Breakdown
+- Financial Impact by Root Cause
+- Smart Audit Summary
+- Priority Dispute Queue
+- Dispute Decision Drawer
+- Export Dispute CSV
+- Filters by carrier, violation type, zone, payment mode, delivery status, shipment ID, and AWB
+
+## Methodology Summary
+
+```text
+Expected Charge = Contracted Base Rate + Eligible COD + Eligible RTO
+Overcharge = Total Billed - Expected Charge
+```
+
+Only positive overcharges are counted as recoverable overbilling.
+
+- Affected shipments are unique overbilled shipments.
+- Violation events are root-cause issues counted separately.
+- One shipment can have more than one violation.
+- Underbilled/discounted shipments are excluded from recoverable leakage.
+
+## Tech Stack
+
+| Area | Technology |
+|---|---|
+| Framework | Next.js App Router |
+| Language | TypeScript |
+| UI | React |
+| Charts | Recharts |
+| Currency Math | decimal.js |
+| API Layer | Next.js API Routes |
+| Cache | In-memory cache, optional Upstash Redis |
+| Deployment | Vercel / Netlify / Cloudflare Pages |
 
 ## Submission Write-up
 
@@ -33,48 +88,15 @@ Key findings: 8,000 shipments were audited, with ₹14,438.07 in recoverable ove
 
 Recommended actions are to audit BlueDart first, prioritize high-value rows from the Priority Dispute Queue, review weight slab mapping with carriers, block invalid RTO/COD/misc charges before invoice approval, and export the dispute CSV for carrier follow-up.
 
-## Tech Stack
+## Implementation Notes
 
-| Area | Choice |
-| --- | --- |
-| App framework | Next.js App Router |
-| Language | TypeScript, React |
-| Charts | Recharts |
-| Icons | Lucide React |
-| Data fetch | Axios in Next.js server API routes |
-| Currency math | decimal.js |
-| Cache | In-memory cache with optional Upstash Redis |
+- The app fetches all paginated shipment and rate-card records with `limit=100`.
+- Dashboard figures are calculated from live Mosaic APIs at runtime, not from bundled sample data or hardcoded dashboard totals.
+- Backend logic runs through Next.js API routes in `frontend/app/api`.
+- There is no separate Express service, background server, or standalone backend process.
+- The app does not use Streamlit, Render, login-gated pages, or a separate backend deployment.
 
-## Features
-
-- Fetches all paginated shipments and rate-card records with `limit=100`.
-- Normalizes carrier, zone, payment mode, service type, charge, and weight-slab fields.
-- Calculates expected charge from carrier, destination zone, and actual weight slab.
-- Classifies rows as Overbilled, Correct, Underbilled/Discounted, or Rate Card Match Missing.
-- Counts only positive overcharge as recoverable overbilling.
-- Excludes underbilled/discounted shipments from recoverable leakage.
-- Separates unique affected shipments from root-cause violation events.
-- Allows one shipment to carry multiple violation reasons when multiple checks fail.
-- Shows summary cards, carrier analysis, error breakdown, charts, Smart Audit Summary, methodology, recommendations, and a shipment-level audit table.
-- Filters by carrier, error type, zone, payment mode, delivery status, and shipment/AWB search.
-- Updates metrics, charts, recommendations, and the table from active filters.
-- Exports filtered overbilled shipments to CSV.
-
-## Audit Methodology
-
-1. Fetch all pages from the Mosaic shipments API and rate-card API.
-2. Normalize raw records so missing fields do not crash the dashboard.
-3. Match each shipment to a rate-card row using carrier, destination zone, and actual weight slab.
-4. Calculate expected charge as base rate plus applicable COD charge plus applicable RTO charge.
-5. Read billed charge from `total_billed` in the shipment record.
-6. Calculate `overcharge = billed charge - expected charge`.
-7. Count only positive overcharge as potential overbilling.
-8. Classify root-cause reasons from slab mismatch, zone mismatch, payment/COD mismatch, surcharge mismatch, RTO mismatch, and unclassified cases.
-9. Count affected shipments as unique overbilled shipments, while violation events are counted separately as root-cause issues.
-
-The dashboard treats underbilled or discounted shipments as non-recoverable for dispute purposes. They are useful context, but they do not increase the recoverable leakage number.
-
-## How To Run Locally
+## Run Locally
 
 ```bash
 npm install
@@ -96,8 +118,6 @@ The root `postinstall` script installs the `frontend` package automatically, so 
 - Vercel: import the repository, keep the root directory at the repo root, and use the default `npm run build` command.
 - Netlify: use the Next.js runtime/plugin with `npm run build`; the app does not need authentication or a separate backend process.
 - Cloudflare Pages: deploy with the platform's Next.js adapter/OpenNext flow for App Router API routes.
-
-The app does not use Streamlit, Render, login-gated pages, bundled sample data, or hardcoded dashboard metrics. Dashboard figures are calculated from the live Mosaic shipments and rate-card APIs at runtime.
 
 ## Assumptions And Limitations
 
