@@ -6,8 +6,8 @@ Built for the Mosaic Fellowship Builder Challenge problem: Supply Chain Team - L
 
 ## Quick Links
 
-- Live Demo: To be added after deployment
-- Loom Walkthrough: To be added after recording
+- Live Demo: **TO BE ADDED AFTER DEPLOYMENT**
+- Loom Walkthrough: **TO BE ADDED AFTER RECORDING**
 - Methodology: [./METHODOLOGY.md](./METHODOLOGY.md)
 - Architecture: [./ARCHITECTURE.md](./ARCHITECTURE.md)
 - Source Code: This repository
@@ -182,30 +182,52 @@ The root `postinstall` script installs the `frontend` package automatically, so 
 - Rate-card matching uses the fields available in the API: carrier, zone, and weight slab. Service type and payment mode are used for optional charge logic where applicable.
 - The app labels findings as potential overbilling because final recovery depends on business validation and carrier dispute acceptance.
 - Missing rate-card matches are marked Rate Card Match Missing and excluded from potential overbilling until the contract row is available.
-- The internal recovery mismatch count should be interpreted as positive-overcharge rows only, not all nonzero variances.
+- Recovery counts focus only on positive overcharge rows. Underbilled or discounted rows are tracked separately and excluded from recoverable leakage.
 
 ## Folder Structure
 
 ```text
-frontend/
-  app/
-    api/
-      audit/route.ts
-      export/route.ts
-      issues/route.ts
-      summary/route.ts
-    components/
-      DashboardClient.tsx
-      types.ts
-    globals.css
-    layout.tsx
-    page.tsx
-  lib/
-    cache.ts
-    exportCsv.ts
-    fetchData.ts
-    formatters.ts
-    reconciliation.ts
-package.json
-README.md
+.
+├── .env.example
+├── .gitignore
+├── ARCHITECTURE.md
+├── METHODOLOGY.md
+├── README.md
+├── package.json
+└── frontend/
+    ├── .gitignore
+    ├── README.md
+    ├── eslint.config.mjs
+    ├── next.config.ts
+    ├── package-lock.json
+    ├── package.json
+    ├── postcss.config.mjs
+    ├── tsconfig.json
+    ├── vercel.json
+    ├── app/
+    │   ├── api/
+    │   │   ├── audit/route.ts
+    │   │   ├── cron/route.ts
+    │   │   ├── export/route.ts
+    │   │   ├── issues/route.ts
+    │   │   └── summary/route.ts
+    │   ├── components/
+    │   │   ├── DashboardClient.tsx
+    │   │   └── types.ts
+    │   ├── favicon.ico
+    │   ├── globals.css
+    │   ├── layout.tsx
+    │   └── page.tsx
+    ├── lib/
+    │   ├── cache.ts
+    │   ├── exportCsv.ts
+    │   ├── fetchData.ts
+    │   ├── formatters.ts
+    │   └── reconciliation.ts
+    └── public/
+        ├── file.svg
+        ├── globe.svg
+        ├── next.svg
+        ├── vercel.svg
+        └── window.svg
 ```
