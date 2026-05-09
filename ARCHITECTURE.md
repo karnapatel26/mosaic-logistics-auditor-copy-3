@@ -21,7 +21,7 @@ frontend/
       summary/route.ts    Summary-only API response
       issues/route.ts     Paginated overbilling issue API
       export/route.ts     Filtered CSV export API
-      cron/route.ts       Optional cache warming endpoint
+      cron/route.ts       Optional manual cache warming endpoint
     components/
       DashboardClient.tsx Main dashboard UI
       types.ts            Shared dashboard response types
@@ -87,7 +87,7 @@ Affected shipments are unique overbilled shipments. Violation events are root-ca
 - `/api/summary`: returns summary, carrier, violation-type, and filter metadata.
 - `/api/issues`: returns paginated dispute-ready overbilling rows.
 - `/api/export`: returns a CSV of filtered overbilling rows.
-- `/api/cron`: optional Vercel cron endpoint to warm the cached audit result.
+- `/api/cron`: optional manual cache-warming endpoint. The app works without scheduled cron jobs because `/api/audit` loads and reconciles data on demand.
 
 ## Dashboard Sections
 
