@@ -9,6 +9,7 @@ Built for the Mosaic Fellowship Builder Challenge problem: Supply Chain Team - L
 - Live Demo: To be added after deployment
 - Loom Walkthrough: To be added after recording
 - Methodology: [./METHODOLOGY.md](./METHODOLOGY.md)
+- Architecture: [./ARCHITECTURE.md](./ARCHITECTURE.md)
 - Source Code: This repository
 
 ## Final Verified Numbers
@@ -37,6 +38,22 @@ Logistics teams often receive carrier invoices where the billed amount does not 
 - Classifies root causes such as weight slab mismatch, zone mismatch, COD mismatch, RTO mismatch, and extra/misc charges.
 - Ranks carriers by recoverable overbilling.
 - Provides a Priority Dispute Queue and CSV export for action.
+
+## Project Flow
+
+```mermaid
+flowchart LR
+  Shipments["Mosaic Shipment API"] --> Fetch["fetchData.ts"]
+  RateCard["Mosaic Rate Card API"] --> Fetch
+  Fetch --> Reconcile["reconciliation.ts"]
+  Reconcile --> Api["Next.js API Routes"]
+  Api --> Dashboard["Dashboard UI"]
+  Dashboard --> Kpis["KPI Cards"]
+  Dashboard --> Charts["Charts"]
+  Dashboard --> Queue["Priority Dispute Queue"]
+  Dashboard --> Drawer["Dispute Decision Drawer"]
+  Dashboard --> Csv["CSV Export"]
+```
 
 ## Dashboard Features
 

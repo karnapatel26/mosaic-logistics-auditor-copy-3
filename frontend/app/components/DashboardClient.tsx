@@ -76,6 +76,8 @@ function formatExactCurrency(value: number) {
 }
 
 function matchesFilters(shipment: ReconciledShipment, filters: Filters) {
+  // Filters operate on reconciled audit rows so KPIs, charts, and the dispute
+  // queue all describe the same current recovery view.
   const query = filters.search.trim().toLowerCase();
   return (
     (!filters.carrier || shipment.carrier === filters.carrier) &&
@@ -234,6 +236,8 @@ function buildWhyDispute(proofKind: ProofKind) {
 }
 
 function buildEvidenceRows(shipment: ReconciledShipment, proofKind: ProofKind): EvidenceRow[] {
+  // The drawer converts each root cause into reviewer-friendly evidence for a
+  // carrier dispute instead of showing only raw shipment fields.
   const totalChargeRow = {
     check: "Total Charge",
     expected: formatCurrency(shipment.expected_charge),
@@ -418,6 +422,8 @@ export default function DashboardClient() {
       setLoading(true);
       setError("");
       try {
+        // Load the server-reconciled audit once; client-side filters then
+        // recompute the visible recovery story without refetching source APIs.
         const response = await fetch("/api/audit", { cache: "no-store" });
         if (!response.ok) throw new Error(`Audit API returned ${response.status}`);
         const json = await response.json() as AuditResponse;
@@ -436,6 +442,8 @@ export default function DashboardClient() {
     data?.shipments.filter((shipment) => matchesFilters(shipment, filters)) ?? []
   ), [data, filters]);
 
+  // Re-summarize filtered rows so every KPI and chart stays aligned with the
+  // active carrier, violation, zone, payment, delivery, and search filters.
   const filteredAudit = useMemo(() => summarizeShipments(filteredShipments), [filteredShipments]);
   const overbilledRows = useMemo(() => (
     filteredShipments

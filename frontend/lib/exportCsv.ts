@@ -17,6 +17,8 @@ const headers = [
 ];
 
 export function buildOverbillingCsv(shipments: ReconciledShipment[]) {
+  // The export is intentionally dispute-ready: only positive overbilling rows
+  // are included, while correct and discounted rows stay out of carrier follow-up.
   const rows = shipments
     .filter((shipment) => shipment.status === "Overbilled" && shipment.overcharge > 0)
     .map((shipment) => [

@@ -4,6 +4,8 @@ import type { RawRateCard, RawShipment } from "./fetchData";
 const UNKNOWN = "Unknown";
 const MONEY_PLACES = 2;
 
+// Use Decimal for invoice math so rupee/currency formatting and rounding do
+// not create false positive or false negative billing differences.
 function money(value: unknown): Decimal {
   if (value === null || value === undefined || value === "") return new Decimal(0);
   try {
@@ -217,6 +219,8 @@ export function normalizeShipment(raw: RawShipment = {}): Shipment {
   const actualWeightSlab = normalizeSlab(raw.actual_weight_slab);
   const billedWeightSlab = normalizeSlab(raw.billed_weight_slab ?? raw.actual_weight_slab);
 
+  // Normalize API records once so the audit logic can compare like-for-like
+  // carrier, zone, slab, payment, and charge fields.
   return {
     shipment_id: safeText(raw.shipment_id, "Missing shipment ID"),
     awb_number: safeText(raw.awb_number, "Missing AWB"),
@@ -269,12 +273,16 @@ export function buildRateIndex(rateCards: RateCard[]) {
 }
 
 function matchesOptionalRateFields(shipment: Shipment, rate: RateCard) {
+  // Some rate-card rows only define carrier/zone/slab; optional dimensions are
+  // applied only when the API supplies them.
   const serviceMatches = rate.service_type === UNKNOWN || rate.service_type === shipment.shipment_type;
   const paymentMatches = rate.payment_mode === UNKNOWN || rate.payment_mode === shipment.payment_mode;
   return serviceMatches && paymentMatches;
 }
 
 function findMatchingRate(shipment: Shipment, rateIndex: Map<string, RateCard[]>): RateCard | null {
+  // Contract lookup is based on the shipment's actual billing basis: carrier,
+  // destination zone, and actual weight slab.
   const candidates = rateIndex.get(rateKey(
     shipment.carrier,
     shipment.destination_zone,
@@ -309,6 +317,8 @@ function classifyReasons(shipment: Shipment, expected: Decimal, rate: RateCard |
     addReason(reasons, "Zone mismatch");
   }
 
+  // Root-cause checks explain why a row is dispute-worthy; final recovery still
+  // depends on a positive total-billed variance.
   const expectedCod = shipment.payment_mode === "COD" ? new Decimal(rate.cod_fee) : new Decimal(0);
   if (!centsEqual(shipment.cod_charge, expectedCod)) {
     addReason(reasons, "COD/payment charge mismatch");
@@ -408,6 +418,8 @@ function computeSummary(shipments: ReconciledShipment[]): ReconciliationResult {
   let underbilledCount = 0;
 
   for (const shipment of shipments) {
+    // Recoverable leakage is intentionally one-way: discounts/underbilling do
+    // not offset carrier overcharges the supply-chain team can dispute.
     const positiveOvercharge = Math.max(0, shipment.overcharge);
     totalBilled = totalBilled.plus(shipment.billed_charge);
     totalExpected = totalExpected.plus(shipment.expected_charge);

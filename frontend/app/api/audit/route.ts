@@ -5,6 +5,8 @@ export const maxDuration = 60;
 
 export async function GET() {
   try {
+    // Single full-audit endpoint for the client dashboard: fetch live Mosaic
+    // data, reconcile it, and return both summaries and shipment-level evidence.
     const result = await getCachedAnalysis();
     return NextResponse.json(result);
   } catch (err: unknown) {

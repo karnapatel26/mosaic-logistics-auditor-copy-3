@@ -34,7 +34,9 @@ const redis =
 async function computeAnalysis(): Promise<ReconciliationResult> {
   const { shipments, rateCards } = await getAllData();
   const result = reconcileAll(shipments, rateCards);
-  
+
+  // Cache the completed carrier billing audit, not raw API pages, so every
+  // dashboard route reads the same reconciled numbers.
   if (redis) {
     try {
       await redis.setex("audit_reconciliation_result", CACHE_TTL_S, result);
