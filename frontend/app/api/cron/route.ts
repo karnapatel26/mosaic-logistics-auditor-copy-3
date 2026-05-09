@@ -18,10 +18,6 @@ export const maxDuration = 60;
 export async function GET(_request: Request) {
   void _request;
   try {
-    // Optional: verify cron secret if you configure it in Vercel settings
-    // const authHeader = request.headers.get('authorization');
-    // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) ...
-
     const result = await getCachedAnalysis();
     
     return NextResponse.json({ 
