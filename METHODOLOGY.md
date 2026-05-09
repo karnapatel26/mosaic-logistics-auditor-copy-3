@@ -53,7 +53,7 @@ Status classification:
 
 Only positive overcharge contributes to recoverable overbilling. Underbilled or discounted shipments are tracked separately and are not included in recoverable leakage.
 
-## Error Reasons
+## Violation Reasons
 
 The audit assigns one or more reasons when possible:
 

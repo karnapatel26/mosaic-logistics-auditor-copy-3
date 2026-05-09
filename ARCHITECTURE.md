@@ -2,7 +2,7 @@
 
 ## Project Purpose
 
-Mosaic Logistics Billing Auditor is a supply-chain recovery tool for carrier billing audit. It performs rate-card reconciliation, identifies recoverable overbilling, and creates a dispute-ready queue for carrier follow-up.
+Mosaic Logistics Billing Auditor is a supply-chain recovery tool for carrier billing audit. It performs rate-card reconciliation, identifies recoverable overbilling, and creates a dispute-ready queue for carrier follow-up. The goal is not only to report billing issues, but to help the supply chain team decide which carrier invoices to dispute first.
 
 ## Data Sources
 
@@ -35,16 +35,21 @@ frontend/
 
 Backend logic runs through Next.js API routes. There is no separate Express service or standalone backend process.
 
-## Request And Data Flow
+## System Flow
 
 ```mermaid
-flowchart LR
-  Shipments["Mosaic Shipment API"] --> Fetch["fetchData.ts"]
-  RateCard["Mosaic Rate Card API"] --> Fetch
+flowchart TD
+  subgraph Sources["Live Mosaic APIs"]
+    Shipments["Mosaic Shipment API"]
+    RateCard["Mosaic Rate Card API"]
+  end
+
+  Sources --> Fetch["fetchData.ts"]
   Fetch --> Reconcile["reconciliation.ts"]
   Reconcile --> Cache["cache.ts"]
-  Cache --> Api["Next.js API Routes"]
+  Cache --> Api["Next.js API routes"]
   Api --> Dashboard["Dashboard UI"]
+
   Dashboard --> Kpis["KPI Cards"]
   Dashboard --> Charts["Charts"]
   Dashboard --> Queue["Priority Dispute Queue"]
@@ -79,7 +84,7 @@ Affected shipments are unique overbilled shipments. Violation events are root-ca
 ## API Routes
 
 - `/api/audit`: returns the full reconciled result for the dashboard.
-- `/api/summary`: returns summary, carrier, error-type, and filter metadata.
+- `/api/summary`: returns summary, carrier, violation-type, and filter metadata.
 - `/api/issues`: returns paginated dispute-ready overbilling rows.
 - `/api/export`: returns a CSV of filtered overbilling rows.
 - `/api/cron`: optional Vercel cron endpoint to warm the cached audit result.
@@ -97,6 +102,16 @@ Affected shipments are unique overbilled shipments. Violation events are root-ca
 - Export Dispute CSV
 - Filters for carrier, violation type, zone, payment mode, delivery status, shipment ID, and AWB
 
+## Key Business Outputs
+
+- Recoverable overbilling amount
+- Affected overbilled shipments
+- Root-cause violation events
+- Worst carrier by leakage
+- Highest financial-impact issue
+- Priority dispute queue for carrier follow-up
+- Exportable dispute CSV
+
 ## Assumptions
 
 - The Mosaic rate card is the contract source of truth.
@@ -111,6 +126,8 @@ Affected shipments are unique overbilled shipments. Violation events are root-ca
 - It does not replace operational approval; it prepares evidence for carrier billing review.
 
 ## Final Verified Numbers
+
+These numbers are calculated from the live Mosaic APIs at runtime and are not hardcoded.
 
 | Metric | Value |
 |---|---:|

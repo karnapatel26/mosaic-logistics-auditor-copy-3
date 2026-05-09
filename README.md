@@ -14,6 +14,8 @@ Built for the Mosaic Fellowship Builder Challenge problem: Supply Chain Team - L
 
 ## Final Verified Numbers
 
+These numbers are calculated from the live Mosaic APIs at runtime and are not hardcoded.
+
 | Metric | Value |
 |---|---:|
 | Total Shipments Audited | 8,000 |
@@ -39,15 +41,30 @@ Logistics teams often receive carrier invoices where the billed amount does not 
 - Ranks carriers by recoverable overbilling.
 - Provides a Priority Dispute Queue and CSV export for action.
 
+## How to Review This Project in 60 Seconds
+
+1. Open the live demo.
+2. Check the KPI row for recoverable overbilling.
+3. Review the Priority Dispute Queue sorted by highest overcharge.
+4. Click any overbilled shipment to view the Dispute Decision drawer.
+5. Filter by carrier or violation type to inspect patterns.
+6. Export the Dispute CSV for carrier follow-up.
+
 ## Project Flow
 
 ```mermaid
-flowchart LR
-  Shipments["Mosaic Shipment API"] --> Fetch["fetchData.ts"]
-  RateCard["Mosaic Rate Card API"] --> Fetch
+flowchart TD
+  subgraph Sources["Live Mosaic APIs"]
+    Shipments["Mosaic Shipment API"]
+    RateCard["Mosaic Rate Card API"]
+  end
+
+  Sources --> Fetch["fetchData.ts"]
   Fetch --> Reconcile["reconciliation.ts"]
-  Reconcile --> Api["Next.js API Routes"]
+  Reconcile --> Cache["cache.ts"]
+  Cache --> Api["Next.js API routes"]
   Api --> Dashboard["Dashboard UI"]
+
   Dashboard --> Kpis["KPI Cards"]
   Dashboard --> Charts["Charts"]
   Dashboard --> Queue["Priority Dispute Queue"]
@@ -67,6 +84,20 @@ flowchart LR
 - Dispute Decision Drawer
 - Export Dispute CSV
 - Filters by carrier, violation type, zone, payment mode, delivery status, shipment ID, and AWB
+
+## What Makes This More Than a Dashboard
+
+This project is designed as a supply-chain recovery tool, not a passive reporting view.
+
+It:
+
+- Calculates expected charge from the contracted rate card
+- Separates general mismatches from actual recoverable overbilling
+- Ranks carriers by leakage
+- Explains root causes
+- Creates a Priority Dispute Queue
+- Provides shipment-level dispute decisions
+- Exports dispute-ready rows for carrier follow-up
 
 ## Methodology Summary
 
@@ -94,6 +125,15 @@ Only positive overcharges are counted as recoverable overbilling.
 | API Layer | Next.js API Routes |
 | Cache | In-memory cache, optional Upstash Redis |
 | Deployment | Vercel / Netlify / Cloudflare Pages |
+
+## Evaluation Criteria Mapping
+
+| Criteria | How This Project Addresses It |
+|---|---|
+| Discovery | Identifies hidden overbilling patterns such as weight slab mismatch, zone mismatch, RTO/COD issues, and extra charges |
+| System Quality | Provides a fast Next.js dashboard with filters, charts, dispute queue, drawer, and CSV export |
+| Analytical Rigor | Uses rate-card matching, expected-vs-billed comparison, positive overcharge logic, and separate shipment/event counts |
+| Loom Readiness | The app follows a clear story: find leakage, explain why it happened, and show what to dispute first |
 
 ## Submission Write-up
 
