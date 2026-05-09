@@ -1,7 +1,5 @@
 {
-  "functions": {
-    "app/api/summary/route.ts": {
-      "maxDuration": 60
-    }
-  }
+  "framework": "nextjs",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build"
 }
