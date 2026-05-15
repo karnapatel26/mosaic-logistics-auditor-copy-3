@@ -172,9 +172,7 @@ The root `postinstall` script installs the `frontend` package automatically, so 
 
 ## Deployment
 
-- Vercel: import the repository, set Root Directory to `frontend`, and use `npm run build` as the build command.
-- Netlify: use the Next.js runtime/plugin with `npm run build`; the app does not need authentication or a separate backend process.
-- Cloudflare Pages: deploy with the platform's Next.js adapter/OpenNext flow for App Router API routes.
+- Vercel
 
 ## Assumptions And Limitations
 
