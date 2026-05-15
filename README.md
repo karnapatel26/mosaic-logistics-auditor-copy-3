@@ -6,8 +6,8 @@ Built for the Mosaic Fellowship Builder Challenge problem: Supply Chain Team - L
 
 ## Quick Links
 
-- Live Demo: **TO BE ADDED AFTER DEPLOYMENT**
-- Loom Walkthrough: **TO BE ADDED AFTER RECORDING**
+- Live Demo: https://mosaic-logistics-billing-auditor-ff.vercel.app
+- Demo Video: https://youtu.be/VzlFDWs2i9c
 - Methodology: [./METHODOLOGY.md](./METHODOLOGY.md)
 - Architecture: [./ARCHITECTURE.md](./ARCHITECTURE.md)
 - Source Code: This repository
@@ -172,7 +172,7 @@ The root `postinstall` script installs the `frontend` package automatically, so 
 
 ## Deployment
 
-- Vercel: import the repository, keep the root directory at the repo root, and use the default `npm run build` command.
+- Vercel: import the repository, set Root Directory to `frontend`, and use `npm run build` as the build command.
 - Netlify: use the Next.js runtime/plugin with `npm run build`; the app does not need authentication or a separate backend process.
 - Cloudflare Pages: deploy with the platform's Next.js adapter/OpenNext flow for App Router API routes.
 
