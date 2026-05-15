@@ -6,7 +6,7 @@ Built for the Mosaic Fellowship Builder Challenge problem: Supply Chain Team - L
 
 ## Quick Links
 
-- Live Demo: https://mosaic-logistics-billing-auditor-ff.vercel.app
+- Deployed App URL: https://mosaic-logistics-billing-auditor-ff.vercel.app
 - Demo Video: https://youtu.be/VzlFDWs2i9c
 - Methodology: [./METHODOLOGY.md](./METHODOLOGY.md)
 - Architecture: [./ARCHITECTURE.md](./ARCHITECTURE.md)
